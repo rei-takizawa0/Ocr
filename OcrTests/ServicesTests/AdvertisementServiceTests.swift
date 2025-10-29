@@ -43,72 +43,11 @@ final class AdvertisementServiceTests: XCTestCase {
         // Given: 課金済みの状態
         mockPurchaseService.isPremiumValue = true
 
-        // When & Then: バナー広告を表示すべきでない
+        // When: 新しいAdvertisementServiceを作成（初期化時にpremium状態を反映）
+        sut = AdvertisementService(purchaseService: mockPurchaseService)
+
+        // Then: バナー広告を表示すべきでない
         XCTAssertFalse(sut.shouldShowBanner)
-    }
-
-    func testShouldShowInterstitial_OnFifthExecution_ShouldReturnTrue() {
-        // Given: 課金していない状態
-        mockPurchaseService.isPremiumValue = false
-
-        // When: 4回実行
-        for _ in 0..<4 {
-            sut.recordOCRExecution()
-            XCTAssertFalse(sut.shouldShowInterstitial())
-        }
-
-        // Then: 5回目で広告を表示すべき
-        sut.recordOCRExecution()
-        XCTAssertTrue(sut.shouldShowInterstitial())
-    }
-
-    func testShouldShowInterstitial_WhenPurchased_ShouldReturnFalse() {
-        // Given: 課金済みの状態
-        mockPurchaseService.isPremiumValue = true
-
-        // When: 5回実行
-        for _ in 0..<5 {
-            sut.recordOCRExecution()
-        }
-
-        // Then: 広告を表示すべきでない
-        XCTAssertFalse(sut.shouldShowInterstitial())
-    }
-
-    func testRecordOCRExecution_ShouldIncrementCounter() {
-        // Given: 初期状態
-        mockPurchaseService.isPremiumValue = false
-
-        // When: 3回実行
-        for _ in 0..<3 {
-            sut.recordOCRExecution()
-        }
-
-        // Then: カウンターが正しく増加している
-        XCTAssertFalse(sut.shouldShowInterstitial())
-
-        // When: さらに2回実行（合計5回）
-        sut.recordOCRExecution()
-        sut.recordOCRExecution()
-
-        // Then: 5回目で広告を表示すべき
-        XCTAssertTrue(sut.shouldShowInterstitial())
-    }
-
-    func testShouldShowInterstitial_AfterShowing_ShouldResetCounter() {
-        // Given: 課金していない状態で5回実行
-        mockPurchaseService.isPremiumValue = false
-        for _ in 0..<5 {
-            sut.recordOCRExecution()
-        }
-        XCTAssertTrue(sut.shouldShowInterstitial())
-
-        // When: 広告を表示した後
-        _ = sut.shouldShowInterstitial() // カウンターをリセット
-
-        // Then: 次の実行では広告を表示すべきでない
-        sut.recordOCRExecution()
-        XCTAssertFalse(sut.shouldShowInterstitial())
     }
 
     func testShouldShowAds_WhenPurchaseStatusChanges_ShouldUpdateCorrectly() {
@@ -134,5 +73,59 @@ final class AdvertisementServiceTests: XCTestCase {
         // Then: 正しい値が通知される
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(receivedValues, [true, false])
+    }
+
+    func testLoadBannerAd_WhenNotPremium_ShouldNotThrowError() async {
+        // Given: 課金していない状態
+        mockPurchaseService.isPremiumValue = false
+        sut = AdvertisementService(purchaseService: mockPurchaseService)
+
+        // When & Then: バナー広告のロードに成功すべき
+        do {
+            try await sut.loadBannerAd()
+        } catch {
+            XCTFail("バナー広告のロードに失敗すべきではない")
+        }
+    }
+
+    func testLoadBannerAd_WhenPremium_ShouldThrowError() async {
+        // Given: 課金済みの状態
+        mockPurchaseService.isPremiumValue = true
+        sut = AdvertisementService(purchaseService: mockPurchaseService)
+
+        // When & Then: エラーがスローされるべき
+        do {
+            try await sut.loadBannerAd()
+            XCTFail("プレミアム状態ではエラーがスローされるべき")
+        } catch {
+            XCTAssertTrue(error is AdvertisementServiceError)
+        }
+    }
+
+    func testLoadInterstitialAd_WhenNotPremium_ShouldNotThrowError() async {
+        // Given: 課金していない状態
+        mockPurchaseService.isPremiumValue = false
+        sut = AdvertisementService(purchaseService: mockPurchaseService)
+
+        // When & Then: インタースティシャル広告のロードに成功すべき
+        do {
+            try await sut.loadInterstitialAd()
+        } catch {
+            XCTFail("インタースティシャル広告のロードに失敗すべきではない")
+        }
+    }
+
+    func testLoadInterstitialAd_WhenPremium_ShouldThrowError() async {
+        // Given: 課金済みの状態
+        mockPurchaseService.isPremiumValue = true
+        sut = AdvertisementService(purchaseService: mockPurchaseService)
+
+        // When & Then: エラーがスローされるべき
+        do {
+            try await sut.loadInterstitialAd()
+            XCTFail("プレミアム状態ではエラーがスローされるべき")
+        } catch {
+            XCTAssertTrue(error is AdvertisementServiceError)
+        }
     }
 }

@@ -10,7 +10,7 @@ import XCTest
 
 final class OCRServiceTests: XCTestCase {
 
-    var sut: OCRServiceProtocol!
+    var sut: VisionOCRService!
 
     override func setUp() {
         super.setUp()

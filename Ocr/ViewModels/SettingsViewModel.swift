@@ -29,6 +29,14 @@ final class SettingsViewModel: ObservableObject {
 
     let xURL = URL(string: "https://example.com/terms")!
 
+    // MARK: - App Info
+
+    var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "Version \(version) (\(build))"
+    }
+
     // MARK: - Initialization
 
     init(purchaseService: StoreKitPurchaseService) {

@@ -15,6 +15,7 @@ final class SettingsViewModelTests: XCTestCase {
     var mockPurchaseService: MockPurchaseService!
     var cancellables: Set<AnyCancellable>!
 
+    @MainActor
     override func setUp() {
         super.setUp()
         cancellables = []
@@ -31,6 +32,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     // MARK: - Test Cases
 
+    @MainActor
     func testIsPremium_WhenNotPurchased_ShouldReturnFalse() {
         // Given: 課金していない状態
         mockPurchaseService.isPremiumValue = false
@@ -39,6 +41,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isPremium)
     }
 
+    @MainActor
     func testIsPremium_WhenPurchased_ShouldReturnTrue() {
         // Given: 課金済みの状態
         mockPurchaseService.isPremiumValue = true
@@ -58,6 +61,7 @@ final class SettingsViewModelTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
+    @MainActor
     func testFetchProducts_ShouldLoadProducts() async {
         // Given: 利用可能な商品
         mockPurchaseService.mockProducts = [
@@ -78,6 +82,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNil(sut.errorMessage)
     }
 
+    @MainActor
     func testPurchase_WithValidProduct_ShouldUpdatePremiumStatus() async {
         // Given: 商品をロード
         mockPurchaseService.mockProducts = [
@@ -99,6 +104,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isLoading)
     }
 
+    @MainActor
     func testPurchase_WithError_ShouldShowErrorMessage() async {
         // Given: エラーを返すサービス
         mockPurchaseService.shouldThrowError = true
@@ -111,6 +117,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isLoading)
     }
 
+    @MainActor
     func testRestorePurchases_ShouldCallService() async {
         // When: 購入履歴を復元
         await sut.restorePurchases()
@@ -120,6 +127,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNil(sut.errorMessage)
     }
 
+    @MainActor
     func testRestorePurchases_WithError_ShouldShowErrorMessage() async {
         // Given: エラーを返すサービス
         mockPurchaseService.shouldThrowError = true
@@ -131,6 +139,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.errorMessage)
     }
 
+    @MainActor
     func testGetAppVersion_ShouldReturnVersion() {
         // When: アプリバージョンを取得
         let version = sut.appVersion

@@ -9,7 +9,8 @@ import Foundation
 import Combine
 @testable import Ocr
 
-final class MockPurchaseService: PurchaseServiceProtocol {
+/// StoreKitPurchaseServiceと同じインターフェースを持つテスト用モック
+final class MockPurchaseService {
 
     var isPremiumValue: Bool = false
     let isPremiumSubject = CurrentValueSubject<Bool, Never>(false)
