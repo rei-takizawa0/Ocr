@@ -9,15 +9,29 @@ import Foundation
 import UIKit
 import MessageUI
 
-/// 共有サービスの実装（SRP: 共有処理のみの責任）
-final class SharingService: NSObject, SharingServiceProtocol {
+/// 共有タイプ
+enum SharingType {
+    case copy
+    case airdrop
+    case email
+    case share
+}
 
-    // MARK: - SharingServiceProtocol
+/// 共有サービスエラー
+enum SharingServiceError: Error {
+    case mailNotAvailable
+    case sharingFailed
+}
 
-    func copyToClipboard(_ text: String) {
+/// 共有サービス
+final class SharingService: NSObject {
+
+    /// テキストコピー
+    func copyClipboard(_ text: String) {
         UIPasteboard.general.string = text
     }
 
+    /// 文字共有（AirDrop）
     func shareViaAirDrop(_ text: String, from viewController: UIViewController) async {
         let activityViewController = UIActivityViewController(
             activityItems: [text],
@@ -41,6 +55,7 @@ final class SharingService: NSObject, SharingServiceProtocol {
         }
     }
 
+    /// 文字共有（メール）
     func shareViaEmail(_ text: String, from viewController: UIViewController) async throws {
         guard MFMailComposeViewController.canSendMail() else {
             throw SharingServiceError.mailNotAvailable

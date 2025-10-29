@@ -8,19 +8,30 @@
 import Foundation
 import Combine
 
+/// 広告タイプ
+enum AdType {
+    case banner
+    case interstitial
+}
+
+/// 広告サービスで発生するエラー
+enum AdvertisementServiceError: Error {
+    case adNotLoaded
+    case adLoadFailed
+    case adPresentationFailed
+}
+
 /// 広告管理サービスの実装（SRP: 広告表示ロジックのみの責任）
-final class AdvertisementService: AdvertisementServiceProtocol {
+final class AdvertisementService {
 
     // MARK: - Properties
 
-    private let purchaseService: PurchaseServiceProtocol
-    private var executionCount: Int = 0
-    private let interstitialFrequency: Int = 5
+    private let purchaseService: StoreKitPurchaseService
     private var cancellables = Set<AnyCancellable>()
 
     private let shouldShowAdsSubject = CurrentValueSubject<Bool, Never>(true)
 
-    // MARK: - AdvertisementServiceProtocol
+    // MARK: - Public Properties
 
     var shouldShowAds: AnyPublisher<Bool, Never> {
         shouldShowAdsSubject.eraseToAnyPublisher()
@@ -32,29 +43,12 @@ final class AdvertisementService: AdvertisementServiceProtocol {
 
     // MARK: - Initialization
 
-    init(purchaseService: PurchaseServiceProtocol) {
+    init(purchaseService: StoreKitPurchaseService) {
         self.purchaseService = purchaseService
         observePurchaseStatus()
     }
 
     // MARK: - Public Methods
-
-    func shouldShowInterstitial() -> Bool {
-        guard !purchaseService.isPremium else {
-            return false
-        }
-
-        if executionCount >= interstitialFrequency {
-            executionCount = 0 // リセット
-            return true
-        }
-
-        return false
-    }
-
-    func recordOCRExecution() {
-        executionCount += 1
-    }
 
     func loadBannerAd() async throws {
         // TODO: AdMob SDKとの統合
@@ -68,14 +62,6 @@ final class AdvertisementService: AdvertisementServiceProtocol {
         // TODO: AdMob SDKとの統合
         // 実際の実装ではAdMobのインタースティシャル広告をロード
         guard !purchaseService.isPremium else {
-            throw AdvertisementServiceError.adNotLoaded
-        }
-    }
-
-    func showInterstitialAd() async throws {
-        // TODO: AdMob SDKとの統合
-        // 実際の実装ではAdMobのインタースティシャル広告を表示
-        guard shouldShowInterstitial() else {
             throw AdvertisementServiceError.adNotLoaded
         }
     }

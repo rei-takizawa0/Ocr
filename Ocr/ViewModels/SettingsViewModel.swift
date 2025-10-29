@@ -20,28 +20,18 @@ final class SettingsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showRestoreSuccess: Bool = false
 
-    // MARK: - Dependencies (DIP: 抽象に依存)
+    // MARK: - Dependencies
 
-    private let purchaseService: PurchaseServiceProtocol
+    private let purchaseService: StoreKitPurchaseService
     private var cancellables = Set<AnyCancellable>()
-
-    // MARK: - Computed Properties
-
-    var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
-    }
 
     // MARK: - URLs
 
-    let termsOfServiceURL = URL(string: "https://example.com/terms")!
-    let privacyPolicyURL = URL(string: "https://example.com/privacy")!
-    let supportURL = URL(string: "https://example.com/support")!
+    let xURL = URL(string: "https://example.com/terms")!
 
     // MARK: - Initialization
 
-    init(purchaseService: PurchaseServiceProtocol) {
+    init(purchaseService: StoreKitPurchaseService) {
         self.purchaseService = purchaseService
         observePurchaseStatus()
         self.isPremium = purchaseService.isPremium

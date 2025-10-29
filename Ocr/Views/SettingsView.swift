@@ -24,9 +24,6 @@ struct SettingsView: View {
 
                 // リンクセクション
                 linksSection
-
-                // アプリ情報セクション
-                appInfoSection
             }
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.inline)
@@ -144,27 +141,9 @@ struct SettingsView: View {
 
     private var linksSection: some View {
         Section {
-            Link(destination: viewModel.termsOfServiceURL) {
+            Link(destination: viewModel.xURL) {
                 HStack {
-                    Label("利用規約", systemImage: "doc.text")
-                    Spacer()
-                    Image(systemName: "arrow.up.right.square")
-                        .foregroundColor(.gray)
-                }
-            }
-
-            Link(destination: viewModel.privacyPolicyURL) {
-                HStack {
-                    Label("プライバシーポリシー", systemImage: "hand.raised")
-                    Spacer()
-                    Image(systemName: "arrow.up.right.square")
-                        .foregroundColor(.gray)
-                }
-            }
-
-            Link(destination: viewModel.supportURL) {
-                HStack {
-                    Label("サポート", systemImage: "questionmark.circle")
+                    Label("問い合わせアカウント", systemImage: "doc.text")
                     Spacer()
                     Image(systemName: "arrow.up.right.square")
                         .foregroundColor(.gray)
@@ -172,19 +151,6 @@ struct SettingsView: View {
             }
         } header: {
             Text("リンク")
-        }
-    }
-
-    private var appInfoSection: some View {
-        Section {
-            HStack {
-                Text("バージョン")
-                Spacer()
-                Text(viewModel.appVersion)
-                    .foregroundColor(.gray)
-            }
-        } header: {
-            Text("アプリ情報")
         }
     }
 }

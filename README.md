@@ -39,24 +39,22 @@ Vision frameworkを使用した高精度OCRアプリケーション
 - `OCRViewModel`: プレゼンテーションロジックのみを担当
 
 #### 2. Open/Closed Principle (OCP)
-プロトコルを使用することで、拡張に対して開き、変更に対して閉じています：
-- 新しいOCRエンジンを追加する場合、`OCRServiceProtocol`を実装するだけ
-- 新しい広告SDKに変更する場合、`AdvertisementServiceProtocol`を実装するだけ
+各サービスは拡張に対して開き、変更に対して閉じています：
+- 新しい機能は既存コードを変更せずに追加可能
 
 #### 3. Liskov Substitution Principle (LSP)
-全てのサービスはプロトコルに準拠し、実装を置き換え可能です：
-- テスト時にはモック実装を使用
-- 本番環境では実際の実装を使用
+各サービスは独立しており、必要に応じて置き換え可能です：
+- テスト時にはモック実装を使用可能
 
 #### 4. Interface Segregation Principle (ISP)
-各プロトコルは必要最小限のメソッドのみを定義：
-- `OCRServiceProtocol`: `recognizeText`のみ
-- `SharingServiceProtocol`: 共有関連メソッドのみ
+各サービスは必要な機能のみを提供：
+- `VisionOCRService`: OCR処理のみ
+- `SharingService`: 共有機能のみ
 
 #### 5. Dependency Inversion Principle (DIP)
-高レベルモジュールは抽象（プロトコル）に依存：
-- `OCRViewModel`は具体的なサービスではなく、プロトコルに依存
-- `DependencyContainer`で依存関係を一元管理
+ViewModelは具体的なサービスに直接依存：
+- 依存関係はイニシャライザで注入
+- シンプルで明確な依存関係
 
 ## プロジェクト構造
 
@@ -64,26 +62,19 @@ Vision frameworkを使用した高精度OCRアプリケーション
 Ocr/
 ├── Models/
 │   └── OCRResult.swift              # OCR結果のモデル
-├── Protocols/
-│   ├── OCRServiceProtocol.swift
-│   ├── AdvertisementServiceProtocol.swift
-│   ├── PurchaseServiceProtocol.swift
-│   └── SharingServiceProtocol.swift
 ├── Services/
 │   ├── VisionOCRService.swift       # Vision frameworkを使用したOCR実装
-│   ├── AdvertisementService.swift
-│   ├── StoreKitPurchaseService.swift
-│   └── SharingService.swift
+│   ├── AdvertisementService.swift   # 広告管理サービス
+│   ├── StoreKitPurchaseService.swift # 課金管理サービス
+│   └── SharingService.swift         # 共有サービス
 ├── ViewModels/
 │   ├── OCRViewModel.swift           # OCR画面のViewModel
 │   └── SettingsViewModel.swift      # 設定画面のViewModel
-├── Views/
-│   ├── OCRView.swift                # メインのOCR画面
-│   ├── SettingsView.swift           # 設定画面
-│   ├── BannerAdView.swift           # バナー広告表示
-│   └── InterstitialAdView.swift    # インタースティシャル広告表示
-└── DI/
-    └── DependencyContainer.swift    # 依存性注入コンテナ
+└── Views/
+    ├── OCRView.swift                # メインのOCR画面
+    ├── SettingsView.swift           # 設定画面
+    ├── BannerAdView.swift           # バナー広告表示
+    └── InterstitialAdView.swift    # インタースティシャル広告表示
 
 OcrTests/
 ├── ServicesTests/

@@ -7,9 +7,27 @@
 
 import SwiftUI
 import PhotosUI
+import SwiftData
 
 struct OCRView: View {
-    @StateObject var viewModel: OCRViewModel
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var viewModel: OCRViewModel
+    private let purchaseService: StoreKitPurchaseService
+
+    init() {
+        let purchaseService = StoreKitPurchaseService()
+        let ocrService = VisionOCRService()
+        let advertisementService = AdvertisementService(purchaseService: purchaseService)
+        let sharingService = SharingService()
+
+        self.purchaseService = purchaseService
+        _viewModel = StateObject(wrappedValue: OCRViewModel(
+            ocrService: ocrService,
+            advertisementService: advertisementService,
+            sharingService: sharingService,
+            showInterstitialAd: purchaseService.isPremium
+        ))
+    }
     @State private var selectedImage: UIImage?
     @State private var isShowingImagePicker = false
     @State private var isShowingCamera = false
@@ -66,12 +84,12 @@ struct OCRView: View {
                 }
             }
             .sheet(isPresented: $isShowingImagePicker) {
-                ImagePicker(image: $selectedImage, sourceType: .photoLibrary) { image in
+                ImagePicker(selectedImage: $selectedImage, sourceType: .photoLibrary) { image in
                     processImage(image)
                 }
             }
             .sheet(isPresented: $isShowingCamera) {
-                ImagePicker(image: $selectedImage, sourceType: .camera) { image in
+                ImagePicker(selectedImage: $selectedImage, sourceType: .camera) { image in
                     processImage(image)
                 }
             }
@@ -81,7 +99,7 @@ struct OCRView: View {
                 }
             }
             .sheet(isPresented: $showingSettings) {
-                SettingsView(viewModel: DependencyContainer.shared.makeSettingsViewModel())
+                SettingsView(viewModel: SettingsViewModel(purchaseService: purchaseService))
             }
         }
     }
@@ -182,49 +200,6 @@ struct OCRView: View {
     }
 }
 
-// MARK: - Image Picker
-
-struct ImagePicker: UIViewControllerRepresentable {
-    @Binding var image: UIImage?
-    let sourceType: UIImagePickerController.SourceType
-    let onImagePicked: (UIImage) -> Void
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = sourceType
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: ImagePicker
-
-        init(_ parent: ImagePicker) {
-            self.parent = parent
-        }
-
-        func imagePickerController(
-            _ picker: UIImagePickerController,
-            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
-        ) {
-            if let image = info[.originalImage] as? UIImage {
-                parent.image = image
-                parent.onImagePicked(image)
-            }
-            picker.dismiss(animated: true)
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            picker.dismiss(animated: true)
-        }
-    }
-}
 
 // MARK: - Share Sheet
 
@@ -236,18 +211,4 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-#Preview {
-    let ocrService = VisionOCRService()
-    let purchaseService = StoreKitPurchaseService()
-    let adService = AdvertisementService(purchaseService: purchaseService)
-    let sharingService = SharingService()
-    let viewModel = OCRViewModel(
-        ocrService: ocrService,
-        advertisementService: adService,
-        sharingService: sharingService
-    )
-
-    return OCRView(viewModel: viewModel)
 }

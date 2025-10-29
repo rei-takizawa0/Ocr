@@ -9,8 +9,24 @@ import Foundation
 import StoreKit
 import Combine
 
+/// 購入可能な商品
+struct PurchaseProduct: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let description: String
+    let price: String
+}
+
+/// 課金サービスで発生するエラー
+enum PurchaseServiceError: Error, Equatable {
+    case productNotFound
+    case purchaseFailed
+    case userCancelled
+    case restoreFailed
+}
+
 /// StoreKitを使用した課金サービスの実装（SRP: 課金処理のみの責任）
-final class StoreKitPurchaseService: PurchaseServiceProtocol {
+final class StoreKitPurchaseService {
 
     // MARK: - Properties
 
@@ -21,7 +37,7 @@ final class StoreKitPurchaseService: PurchaseServiceProtocol {
     private let isPremiumSubject = CurrentValueSubject<Bool, Never>(false)
     private var updateListenerTask: Task<Void, Never>?
 
-    // MARK: - PurchaseServiceProtocol
+    // MARK: - Public Properties
 
     var isPremium: Bool {
         isPremiumSubject.value
@@ -34,7 +50,6 @@ final class StoreKitPurchaseService: PurchaseServiceProtocol {
     // MARK: - Initialization
 
     init() {
-        updateListenerTask = listenForTransactions()
         Task {
             await updatePurchaseStatus()
         }
@@ -70,9 +85,9 @@ final class StoreKitPurchaseService: PurchaseServiceProtocol {
         }
 
         do {
-            let result = try await product.purchase()
+            let purchase = try await product.purchase()
 
-            switch result {
+            switch purchase {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
                 await transaction.finish()
@@ -102,19 +117,6 @@ final class StoreKitPurchaseService: PurchaseServiceProtocol {
     }
 
     // MARK: - Private Methods
-
-    private func listenForTransactions() -> Task<Void, Never> {
-        return Task.detached { [weak self] in
-            for await result in Transaction.updates {
-                guard let transaction = try? self?.checkVerified(result) else {
-                    continue
-                }
-
-                await transaction.finish()
-                await self?.updatePurchaseStatus()
-            }
-        }
-    }
 
     private func updatePurchaseStatus() async {
         var purchasedIds = Set<String>()

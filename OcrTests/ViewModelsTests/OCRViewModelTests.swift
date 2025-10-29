@@ -184,7 +184,7 @@ final class MockAdvertisementService: AdvertisementServiceProtocol {
 final class MockSharingService: SharingServiceProtocol {
     var copyToClipboardCalled = false
 
-    func copyToClipboard(_ text: String) {
+    func copyClipboard(_ text: String) {
         copyToClipboardCalled = true
     }
 

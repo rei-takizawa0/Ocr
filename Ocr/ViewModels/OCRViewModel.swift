@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import Combine
+import SwiftData
 
 /// OCR画面のViewModel（SRP: プレゼンテーションロジックのみの責任）
 @MainActor
@@ -20,14 +21,16 @@ final class OCRViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var shouldShowInterstitialAd: Bool = false
 
-    // MARK: - Dependencies (DIP: 抽象に依存)
+    // MARK: - Dependencies
 
-    private let ocrService: OCRServiceProtocol
-    private let advertisementService: AdvertisementServiceProtocol
-    private let sharingService: SharingServiceProtocol
+    var modelContext: ModelContext?
+    private let ocrService: VisionOCRService
+    private let advertisementService: AdvertisementService
+    private let sharingService: SharingService
 
     private var cancellables = Set<AnyCancellable>()
-
+    private var ads: Ads
+    private var showInterstitialAd:Bool
     // MARK: - Computed Properties
 
     var shouldShowBanner: Bool {
@@ -37,32 +40,70 @@ final class OCRViewModel: ObservableObject {
     // MARK: - Initialization
 
     init(
-        ocrService: OCRServiceProtocol,
-        advertisementService: AdvertisementServiceProtocol,
-        sharingService: SharingServiceProtocol
+        ocrService: VisionOCRService,
+        advertisementService: AdvertisementService,
+        sharingService: SharingService,
+        showInterstitialAd: Bool
     ) {
         self.ocrService = ocrService
         self.advertisementService = advertisementService
         self.sharingService = sharingService
+        let request = FetchDescriptor<Ads>()
+        self.showInterstitialAd = showInterstitialAd
+        if let existingAds = try? self.modelContext?.fetch(request).first {
+            self.ads = existingAds
+        }
+        else
+        {
+            let newAds = Ads(count: 0)
+            modelContext?.insert(newAds)
+            self.ads = newAds
+        }
     }
 
     // MARK: - Public Methods
+    func addCount() async {
+        await MainActor.run {
+            ads.count += 1
+            do {
+                try modelContext?.save()
+            } catch {
+                print("Ads 保存エラー: \(error)")
+            }
+        }
+    }
+    
+    func resetCount() async {
+        await MainActor.run {
+            ads.count = 1
+            do {
+                try modelContext?.save()
+            } catch {
+                print("Ads 保存エラー: \(error)")
+            }
+        }
+    }
 
     func recognizeText(from image: UIImage) async {
         isProcessing = true
         errorMessage = nil
 
         do {
+            let InterstitialCount = 10
+            if ads.count > InterstitialCount {
+                shouldShowInterstitialAd = true
+                await resetCount()
+            }
+            else
+            {
+                await addCount()
+            }
+            
             let result = try await ocrService.recognizeText(from: image)
             recognizedText = result.text
 
             // OCR実行を記録
-            advertisementService.recordOCRExecution()
 
-            // インタースティシャル広告を表示すべきかチェック
-            if advertisementService.shouldShowInterstitial() {
-                shouldShowInterstitialAd = true
-            }
         } catch {
             errorMessage = handleError(error)
         }
@@ -72,7 +113,7 @@ final class OCRViewModel: ObservableObject {
 
     func copyText() {
         guard !recognizedText.isEmpty else { return }
-        sharingService.copyToClipboard(recognizedText)
+        sharingService.copyClipboard(recognizedText)
     }
 
     func shareText(from viewController: UIViewController, sourceView: UIView?) async {

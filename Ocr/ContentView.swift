@@ -8,10 +8,10 @@
 import SwiftUI
 
 struct ContentView: View {
-    let container = DependencyContainer.shared
+    
 
     var body: some View {
-        OCRView(viewModel: container.makeOCRViewModel())
+        OCRView()
     }
 }
 

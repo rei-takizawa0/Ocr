@@ -9,10 +9,17 @@ import Foundation
 import UIKit
 import Vision
 
-/// Vision frameworkを使用したOCRサービスの実装（SRP: OCR処理のみの責任）
-final class VisionOCRService: OCRServiceProtocol {
+/// OCRサービスで発生するエラー
+enum OCRServiceError: Error, Equatable {
+    case invalidImage
+    case recognitionFailed
+    case noTextFound
+}
 
-    // MARK: - OCRServiceProtocol
+/// Vision frameworkを使用したOCRサービスの実装（SRP: OCR処理のみの責任）
+final class VisionOCRService {
+
+    // MARK: - Public Methods
 
     func recognizeText(from image: UIImage) async throws -> OCRResult {
         guard let cgImage = image.cgImage else {
