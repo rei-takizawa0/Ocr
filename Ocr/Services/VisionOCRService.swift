@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import Vision
+import ImageIO
 
 /// OCRサービスで発生するエラー
 enum OCRServiceError: Error, Equatable {
@@ -26,7 +27,13 @@ final class VisionOCRService {
             throw OCRServiceError.invalidImage
         }
 
-        let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        // 画像の向きを考慮したオプション
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        let requestHandler = VNImageRequestHandler(
+            cgImage: cgImage,
+            orientation: orientation,
+            options: [:]
+        )
         let request = createTextRecognitionRequest()
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -34,8 +41,11 @@ final class VisionOCRService {
             var error: Error?
 
             request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = false // 空白を保持するため言語補正を無効化
+            request.usesLanguageCorrection = true // 精度向上のため言語補正を有効化
             request.recognitionLanguages = ["ja-JP", "en-US"]
+            request.automaticallyDetectsLanguage = true
+            request.minimumTextHeight = 0.0 // すべてのサイズのテキストを認識
+            request.revision = VNRecognizeTextRequestRevision3 // 最新のリビジョンを使用
 
             do {
                 try requestHandler.perform([request])
@@ -75,77 +85,27 @@ final class VisionOCRService {
         return VNRecognizeTextRequest()
     }
 
-    /// 認識結果からテキストを抽出（空白を保持）
+    /// 認識結果からテキストを抽出（精度優先）
     private func extractText(from observations: [VNRecognizedTextObservation]) -> String {
-        var lines: [(text: String, x: CGFloat, y: CGFloat, width: CGFloat)] = []
+        var lines: [(text: String, y: CGFloat)] = []
 
         for observation in observations {
+            // 複数の候補から最も信頼度の高いものを選択
             guard let topCandidate = observation.topCandidates(1).first else {
                 continue
             }
 
             let boundingBox = observation.boundingBox
             let yPosition = boundingBox.origin.y
-            let xPosition = boundingBox.origin.x
-            let width = boundingBox.width
 
-            lines.append((text: topCandidate.string, x: xPosition, y: yPosition, width: width))
+            lines.append((text: topCandidate.string, y: yPosition))
         }
 
         // Y座標でソート（上から下へ）
         lines.sort { $0.y > $1.y }
 
-        // 同じ行のテキストをグループ化
-        var groupedLines: [[(text: String, x: CGFloat, width: CGFloat)]] = []
-        var currentGroup: [(text: String, x: CGFloat, width: CGFloat)] = []
-        var lastY: CGFloat?
-        let lineThreshold: CGFloat = 0.02 // 同じ行と判定する閾値
-
-        for line in lines {
-            if let lastY = lastY, abs(line.y - lastY) > lineThreshold {
-                if !currentGroup.isEmpty {
-                    groupedLines.append(currentGroup)
-                    currentGroup = []
-                }
-            }
-            currentGroup.append((text: line.text, x: line.x, width: line.width))
-            lastY = line.y
-        }
-
-        if !currentGroup.isEmpty {
-            groupedLines.append(currentGroup)
-        }
-
-        // 各行内でX座標でソートし、適切な空白を挿入
-        var resultLines: [String] = []
-
-        for group in groupedLines {
-            let sortedGroup = group.sorted { $0.x < $1.x }
-            var lineText = ""
-            var lastEndX: CGFloat = 0
-
-            for (index, item) in sortedGroup.enumerated() {
-                if index > 0 {
-                    // 前のテキストの終了位置と現在のテキストの開始位置の間隔を計算
-                    let gap = item.x - lastEndX
-
-                    // gap が一定以上なら空白を追加（文字幅の半分以上なら空白と判定）
-                    if gap > 0.01 { // 閾値は調整可能
-                        let spaceCount = max(1, Int(gap / 0.015)) // 空白の数を計算
-                        lineText += String(repeating: " ", count: spaceCount)
-                    } else {
-                        lineText += " " // 最低でも1つの空白
-                    }
-                }
-
-                lineText += item.text
-                lastEndX = item.x + item.width
-            }
-
-            resultLines.append(lineText)
-        }
-
-        return resultLines.joined(separator: "\n")
+        // テキストを結合（改行のみ保持）
+        return lines.map { $0.text }.joined(separator: "\n")
     }
 
     /// 平均信頼度を計算
@@ -160,5 +120,23 @@ final class VisionOCRService {
 
         let sum = confidences.reduce(0, +)
         return sum / Float(confidences.count)
+    }
+}
+
+// MARK: - UIImage.Orientation Extension
+
+extension CGImagePropertyOrientation {
+    init(_ uiOrientation: UIImage.Orientation) {
+        switch uiOrientation {
+        case .up: self = .up
+        case .down: self = .down
+        case .left: self = .left
+        case .right: self = .right
+        case .upMirrored: self = .upMirrored
+        case .downMirrored: self = .downMirrored
+        case .leftMirrored: self = .leftMirrored
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
+        }
     }
 }
