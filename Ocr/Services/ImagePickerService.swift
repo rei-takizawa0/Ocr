@@ -7,30 +7,47 @@
 
 import SwiftUI
 
+/// 高解像度画像ピッカー
 struct ImagePicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     let sourceType: UIImagePickerController.SourceType
     let onImagePicked: (UIImage) -> Void
 
-    /// ステータス更新メソッド
+    /// UIImagePickerControllerを作成（高画質設定）
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
         picker.delegate = context.coordinator
+
+        // カメラの場合は高画質設定を適用
+        if sourceType == .camera {
+            // 画質を最高品質に設定
+            picker.cameraCaptureMode = .photo
+            picker.cameraDevice = .rear // 背面カメラを優先
+
+            // 利用可能な場合は最高品質に設定
+            if UIImagePickerController.isCameraDeviceAvailable(.rear) {
+                picker.cameraDevice = .rear
+            }
+        }
+
+        // 編集を無効化して元の解像度を保持
+        picker.allowsEditing = false
+
         return picker
     }
 
     /// データソースの橋渡し
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
-    /// Coordinator の生成
+    /// Coordinatorの生成
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-    
-    /// UIImagePickerController のデリゲートを管理するクラス
+
+    /// UIImagePickerControllerのデリゲートを管理するクラス
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        /// 親 ImagePicker への参照
+        /// 親ImagePickerへの参照
         let parent: ImagePicker
 
         /// コンストラクタ
@@ -43,12 +60,27 @@ struct ImagePicker: UIViewControllerRepresentable {
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
-            guard let image = info[.originalImage] as? UIImage else {
+            // 元の画像を優先的に取得（最高解像度）
+            let image: UIImage?
+
+            if let originalImage = info[.originalImage] as? UIImage {
+                image = originalImage
+            } else if let editedImage = info[.editedImage] as? UIImage {
+                image = editedImage
+            } else {
+                image = nil
+            }
+
+            guard let finalImage = image else {
                 picker.dismiss(animated: true)
                 return
             }
-            parent.selectedImage = image
-            parent.onImagePicked(image)
+
+            // 画像の向きを正規化（カメラで撮影した場合の回転を修正）
+            let normalizedImage = normalizeImageOrientation(finalImage)
+
+            parent.selectedImage = normalizedImage
+            parent.onImagePicked(normalizedImage)
             picker.dismiss(animated: true)
         }
 
@@ -56,5 +88,21 @@ struct ImagePicker: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             picker.dismiss(animated: true)
         }
+
+        /// 画像の向きを正規化
+        private func normalizeImageOrientation(_ image: UIImage) -> UIImage {
+            // 既に.upの場合は何もしない
+            if image.imageOrientation == .up {
+                return image
+            }
+
+            // 画像を再描画して向きを正規化
+            UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
+            defer { UIGraphicsEndImageContext() }
+
+            image.draw(in: CGRect(origin: .zero, size: image.size))
+            return UIGraphicsGetImageFromCurrentImageContext() ?? image
+        }
     }
 }
+

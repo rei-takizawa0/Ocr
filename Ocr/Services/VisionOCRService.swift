@@ -1,8 +1,8 @@
 import Foundation
 import UIKit
 import Vision
-import ImageIO
 import CoreImage
+import Accelerate
 
 enum OCRServiceError: Error, Equatable {
     case invalidImage
@@ -10,35 +10,46 @@ enum OCRServiceError: Error, Equatable {
     case noTextFound
 }
 
+/// Vision frameworkを使用した高精度OCRサービス
 final class VisionOCRService {
+
+    // MARK: - Constants
+
+    /// 信頼度の閾値：この値以下の認識結果は□で置き換える
+    private static let confidenceThreshold: Float = 0.3
+
+    /// 画像の最大解像度（ピクセル）- より高解像度で処理
+    private static let maxImageDimension: CGFloat = 4096
 
     // MARK: - Public Methods
 
     func recognizeText(from image: UIImage) async throws -> OCRResult {
-        guard let preprocessedImage = preprocessLyricsImage(image),
+        // 1. 画像を高解像度にアップスケール
+        guard let highResImage = upscaleImage(image),
+              let preprocessedImage = preprocessImageForOCR(highResImage),
               let cgImage = preprocessedImage.cgImage else {
             throw OCRServiceError.invalidImage
         }
 
         let orientation = CGImagePropertyOrientation(image.imageOrientation)
         let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
-        let request = createTextRecognitionRequest()
-        configureRequest(request)
+        let request = createOptimizedTextRecognitionRequest()
 
         return try await withCheckedThrowingContinuation { continuation in
             do {
                 try handler.perform([request])
+
                 guard let observations = request.results, !observations.isEmpty else {
                     continuation.resume(throwing: OCRServiceError.noTextFound)
                     return
                 }
 
-                let recognizedText = self.extractLyricsText(from: observations)
+                let recognizedText = extractLyricsTextWithConfidence(from: observations)
 
                 if recognizedText.isEmpty {
                     continuation.resume(throwing: OCRServiceError.noTextFound)
                 } else {
-                    let confidence = self.calculateAverageConfidence(from: observations)
+                    let confidence = calculateAverageConfidence(from: observations)
                     let result = OCRResult(
                         text: recognizedText,
                         confidence: confidence,
@@ -55,66 +66,148 @@ final class VisionOCRService {
 
     // MARK: - Private Methods
 
-    private func createTextRecognitionRequest() -> VNRecognizeTextRequest {
-        VNRecognizeTextRequest()
-    }
+    /// Visionリクエストを最適化設定で作成
+    private func createOptimizedTextRecognitionRequest() -> VNRecognizeTextRequest {
+        let request = VNRecognizeTextRequest()
 
-    /// 歌詞向けに最適化された設定
-    private func configureRequest(_ request: VNRecognizeTextRequest) {
+        // 最高精度モードに設定
         request.recognitionLevel = .accurate
+
+        // 言語補正を有効化
         request.usesLanguageCorrection = true
+
+        // 日本語と英語を優先的に認識
+        request.recognitionLanguages = ["ja-JP", "en-US"]
+
+        // 自動言語検出を有効化
         request.automaticallyDetectsLanguage = true
-        request.recognitionLanguages = ["ja", "en"]
-        request.minimumTextHeight = 0.001
+
+        // 最小テキスト高さを設定（小さい文字も検出）
+        request.minimumTextHeight = 0.005
+
+        // 最新のリビジョンを使用
         request.revision = VNRecognizeTextRequestRevision3
+
+        // カスタム単語を設定（必要に応じて）
+        request.customWords = []
+
+        return request
     }
 
-    /// 歌詞画像の前処理（コントラスト強化 + 二値化 + シャープ化）
-    private func preprocessLyricsImage(_ image: UIImage) -> UIImage? {
+    /// 画像を高解像度にアップスケール
+    private func upscaleImage(_ image: UIImage) -> UIImage? {
+        let targetSize = calculateOptimalSize(for: image.size)
+
+        // 高品質な描画設定
+        UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0)
+        defer { UIGraphicsEndImageContext() }
+
+        // 補間品質を最高に設定
+        guard let context = UIGraphicsGetCurrentContext() else { return image }
+        context.interpolationQuality = .high
+
+        image.draw(in: CGRect(origin: .zero, size: targetSize))
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+
+    /// 最適なサイズを計算
+    private func calculateOptimalSize(for size: CGSize) -> CGSize {
+        let maxDimension = max(size.width, size.height)
+
+        // 既に十分大きい場合はそのまま
+        if maxDimension >= Self.maxImageDimension {
+            return size
+        }
+
+        // アスペクト比を維持しながら拡大
+        let scale = Self.maxImageDimension / maxDimension
+        return CGSize(width: size.width * scale, height: size.height * scale)
+    }
+
+    /// 高度な画像前処理（ノイズ除去 + 適応的二値化 + シャープ化）
+    private func preprocessImageForOCR(_ image: UIImage) -> UIImage? {
         guard let ciImage = CIImage(image: image) else { return image }
-        let context = CIContext()
+        let context = CIContext(options: [.useSoftwareRenderer: false])
 
-        // 明るさとコントラスト調整
-        let colorFilter = CIFilter(name: "CIColorControls")!
-        colorFilter.setValue(ciImage, forKey: kCIInputImageKey)
-        colorFilter.setValue(1.1, forKey: kCIInputContrastKey)
-        colorFilter.setValue(0.05, forKey: kCIInputBrightnessKey)
+        // 1. ノイズ除去
+        let noiseReduction = CIFilter(name: "CINoiseReduction")!
+        noiseReduction.setValue(ciImage, forKey: kCIInputImageKey)
+        noiseReduction.setValue(0.02, forKey: "inputNoiseLevel")
+        noiseReduction.setValue(0.4, forKey: "inputSharpness")
 
-        // グレースケール化
-        let grayFilter = CIFilter(name: "CIPhotoEffectMono")!
-        grayFilter.setValue(colorFilter.outputImage, forKey: kCIInputImageKey)
+        // 2. コントラストと明るさの自動調整
+        let autoEnhance = CIFilter(name: "CIColorControls")!
+        autoEnhance.setValue(noiseReduction.outputImage, forKey: kCIInputImageKey)
+        autoEnhance.setValue(1.3, forKey: kCIInputContrastKey)
+        autoEnhance.setValue(0.1, forKey: kCIInputBrightnessKey)
+        autoEnhance.setValue(0.0, forKey: kCIInputSaturationKey) // グレースケール化
 
-        // 軽いシャープ化で細文字を強調
-        let sharpen = CIFilter(name: "CISharpenLuminance")!
-        sharpen.setValue(grayFilter.outputImage, forKey: kCIInputImageKey)
-        sharpen.setValue(0.6, forKey: kCIInputSharpnessKey)
+        // 3. ガンマ補正で明暗を調整
+        let gammaAdjust = CIFilter(name: "CIGammaAdjust")!
+        gammaAdjust.setValue(autoEnhance.outputImage, forKey: kCIInputImageKey)
+        gammaAdjust.setValue(0.75, forKey: "inputPower")
 
-        guard let output = sharpen.outputImage,
-              let cgImage = context.createCGImage(output, from: output.extent) else {
+        // 4. アンシャープマスクで文字を鮮明に
+        let unsharpMask = CIFilter(name: "CIUnsharpMask")!
+        unsharpMask.setValue(gammaAdjust.outputImage, forKey: kCIInputImageKey)
+        unsharpMask.setValue(2.5, forKey: kCIInputRadiusKey)
+        unsharpMask.setValue(0.8, forKey: kCIInputIntensityKey)
+
+        // 5. トーンカーブで白黒をはっきりさせる
+        let toneCurve = CIFilter(name: "CIToneCurve")!
+        toneCurve.setValue(unsharpMask.outputImage, forKey: kCIInputImageKey)
+        toneCurve.setValue(CIVector(x: 0, y: 0.1), forKey: "inputPoint0")
+        toneCurve.setValue(CIVector(x: 0.25, y: 0.2), forKey: "inputPoint1")
+        toneCurve.setValue(CIVector(x: 0.5, y: 0.5), forKey: "inputPoint2")
+        toneCurve.setValue(CIVector(x: 0.75, y: 0.8), forKey: "inputPoint3")
+        toneCurve.setValue(CIVector(x: 1, y: 0.95), forKey: "inputPoint4")
+
+        guard let outputImage = toneCurve.outputImage,
+              let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
             return image
         }
 
         return UIImage(cgImage: cgImage)
     }
 
-    /// 歌詞向け — 改行・順序を維持して整形
-    /// 歌詞向け — 改行位置を再現して出力
-    private func extractLyricsText(from observations: [VNRecognizedTextObservation]) -> String {
-        // 各観測結果を (y位置, x位置, テキスト) のペアで保持
-        var lines: [(y: CGFloat, x: CGFloat, text: String)] = []
-
-        for obs in observations {
-            guard let candidate = obs.topCandidates(1).first else { continue }
-            let box = obs.boundingBox
-            lines.append((y: box.origin.y, x: box.origin.x, text: candidate.string))
+    /// 歌詞テキストを信頼度付きで抽出し、低信頼度の文字を□に置き換え
+    private func extractLyricsTextWithConfidence(from observations: [VNRecognizedTextObservation]) -> String {
+        struct TextElement {
+            let y: CGFloat
+            let x: CGFloat
+            let text: String
+            let confidence: Float
         }
 
-        // Y軸（上→下）でソート、同一行内ではX軸（左→右）
-        lines.sort {
-            if abs($0.y - $1.y) < 0.02 {
-                return $0.x < $1.x
+        var elements: [TextElement] = []
+
+        for observation in observations {
+            guard let candidate = observation.topCandidates(1).first else { continue }
+
+            let box = observation.boundingBox
+            let processedText: String
+
+            // 信頼度が閾値以下の場合は□に置き換え
+            if candidate.confidence < Self.confidenceThreshold {
+                processedText = String(repeating: "□", count: max(1, candidate.string.count))
             } else {
-                return $0.y > $1.y
+                processedText = candidate.string
+            }
+
+            elements.append(TextElement(
+                y: box.origin.y,
+                x: box.origin.x,
+                text: processedText,
+                confidence: candidate.confidence
+            ))
+        }
+
+        // Y座標でソート（上から下へ）、同一行内ではX座標（左から右へ）
+        elements.sort { e1, e2 in
+            if abs(e1.y - e2.y) < 0.015 {
+                return e1.x < e2.x
+            } else {
+                return e1.y > e2.y
             }
         }
 
@@ -123,36 +216,41 @@ final class VisionOCRService {
         var currentLine: String = ""
         var previousY: CGFloat?
 
-        for (y, _, text) in lines {
+        for element in elements {
             if let prevY = previousY {
-                // 行間距離が大きければ改行扱い（0.02〜0.04 は経験上ちょうどよい閾値）
-                if abs(prevY - y) > 0.03 {
-                    resultLines.append(currentLine.trimmingCharacters(in: .whitespaces))
-                    currentLine = text
+                // Y座標の差が大きければ改行
+                if abs(prevY - element.y) > 0.025 {
+                    if !currentLine.isEmpty {
+                        resultLines.append(currentLine.trimmingCharacters(in: .whitespaces))
+                    }
+                    currentLine = element.text
                 } else {
-                    currentLine += " " + text
+                    // 同一行内
+                    currentLine += " " + element.text
                 }
             } else {
-                currentLine = text
+                currentLine = element.text
             }
-            previousY = y
+            previousY = element.y
         }
 
-        // 最終行追加
+        // 最終行を追加
         if !currentLine.isEmpty {
             resultLines.append(currentLine.trimmingCharacters(in: .whitespaces))
         }
 
-        // 改行を維持して結合
         return resultLines.joined(separator: "\n")
     }
 
+    /// 平均信頼度を計算
     private func calculateAverageConfidence(from observations: [VNRecognizedTextObservation]) -> Float {
         let confidences = observations.compactMap { $0.topCandidates(1).first?.confidence }
         guard !confidences.isEmpty else { return 0.0 }
         return confidences.reduce(0, +) / Float(confidences.count)
     }
 }
+
+// MARK: - Extensions
 
 extension CGImagePropertyOrientation {
     init(_ uiOrientation: UIImage.Orientation) {
