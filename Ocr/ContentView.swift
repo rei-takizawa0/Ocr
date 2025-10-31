@@ -6,12 +6,14 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
-    
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var purchaseService: StoreKitPurchaseService
 
     var body: some View {
-        OCRView()
+        OCRView(purchaseService: purchaseService, modelContext: modelContext)
     }
 }
 

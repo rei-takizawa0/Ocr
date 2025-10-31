@@ -52,7 +52,7 @@ final class AdvertisementService {
 
     func loadBannerAd() async throws {
         // TODO: AdMob SDKとの統合
-        // 実際の実装ではAdMobのバナー広告をロード
+        // 実際の実装ではAdMobを使用してバナー広告をロード
         guard shouldShowBanner else {
             throw AdvertisementServiceError.adNotLoaded
         }
@@ -60,7 +60,7 @@ final class AdvertisementService {
 
     func loadInterstitialAd() async throws {
         // TODO: AdMob SDKとの統合
-        // 実際の実装ではAdMobのインタースティシャル広告をロード
+        // 実際の実装ではAdMobを使用してインタースティシャル広告をロード
         guard !purchaseService.isPremium else {
             throw AdvertisementServiceError.adNotLoaded
         }
@@ -70,7 +70,7 @@ final class AdvertisementService {
 
     private func observePurchaseStatus() {
         purchaseService.isPremiumPublisher
-            .map { !$0 } // 課金済みなら広告を表示しない
+            .map { !$0 } // プレミアム購入済みの場合は広告を表示しない
             .sink { [weak self] shouldShow in
                 self?.shouldShowAdsSubject.send(shouldShow)
             }

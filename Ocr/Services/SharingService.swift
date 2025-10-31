@@ -26,19 +26,19 @@ enum SharingServiceError: Error {
 /// 共有サービス
 final class SharingService: NSObject {
 
-    /// テキストコピー
+    /// テキストをクリップボードにコピー
     func copyClipboard(_ text: String) {
         UIPasteboard.general.string = text
     }
 
-    /// 文字共有（AirDrop）
+    /// AirDropでテキストを共有
     func shareViaAirDrop(_ text: String, from viewController: UIViewController) async {
         let activityViewController = UIActivityViewController(
             activityItems: [text],
             applicationActivities: nil
         )
 
-        // iPadの場合はpopoverで表示
+        // iPadの場合はポップオーバーで表示
         if let popoverController = activityViewController.popoverPresentationController {
             popoverController.sourceView = viewController.view
             popoverController.sourceRect = CGRect(
@@ -55,7 +55,7 @@ final class SharingService: NSObject {
         }
     }
 
-    /// 文字共有（メール）
+    /// メールでテキストを共有
     func shareViaEmail(_ text: String, from viewController: UIViewController) async throws {
         guard MFMailComposeViewController.canSendMail() else {
             throw SharingServiceError.mailNotAvailable
@@ -76,7 +76,7 @@ final class SharingService: NSObject {
             applicationActivities: nil
         )
 
-        // iPadの場合はpopoverで表示
+        // iPadの場合はポップオーバーで表示
         if let popoverController = activityViewController.popoverPresentationController {
             if let sourceView = sourceView {
                 popoverController.sourceView = sourceView

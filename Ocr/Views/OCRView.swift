@@ -11,23 +11,22 @@ import SwiftData
 
 struct OCRView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var purchaseService: StoreKitPurchaseService
+
     @StateObject private var viewModel: OCRViewModel
-    private let purchaseService: StoreKitPurchaseService
 
-    init() {
-        let purchaseService = StoreKitPurchaseService()
-        let ocrService = VisionOCRService()
+    init(purchaseService: StoreKitPurchaseService, modelContext: ModelContext) {
+        let adRepository = AdCounterRepository(modelContext: modelContext)
         let advertisementService = AdvertisementService(purchaseService: purchaseService)
-        let sharingService = SharingService()
 
-        self.purchaseService = purchaseService
         _viewModel = StateObject(wrappedValue: OCRViewModel(
-            ocrService: ocrService,
+            ocrService: VisionOCRService(),
             advertisementService: advertisementService,
-            sharingService: sharingService,
-            showInterstitialAd: purchaseService.isPremium
+            sharingService: SharingService(),
+            adRepository: adRepository
         ))
     }
+
     @State private var selectedImage: UIImage?
     @State private var isShowingImagePicker = false
     @State private var isShowingCamera = false
@@ -37,7 +36,7 @@ struct OCRView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // バナー広告エリア
+                // バナー広告エリア（課金済みなら非表示）
                 if viewModel.shouldShowBanner {
                     BannerAdView()
                         .frame(height: 50)
@@ -73,7 +72,6 @@ struct OCRView: View {
                     .padding()
                 }
             }
-            .navigationTitle("OCR")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {

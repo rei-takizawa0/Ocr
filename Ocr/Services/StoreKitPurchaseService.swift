@@ -26,7 +26,7 @@ enum PurchaseServiceError: Error, Equatable {
 }
 
 /// StoreKitを使用した課金サービスの実装（SRP: 課金処理のみの責任）
-final class StoreKitPurchaseService {
+final class StoreKitPurchaseService: ObservableObject {
 
     // MARK: - Properties
 

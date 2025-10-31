@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-/// OCRの結果を表すモデル
+/// OCR認識結果を表すモデル
 struct OCRResult: Equatable {
     let text: String
     let confidence: Float
