@@ -60,6 +60,9 @@ final class StoreKitPurchaseService: ObservableObject {
     }
 
     // MARK: - Public Methods
+    func load() async throws {
+        await updatePurchaseStatus()
+    }
 
     func fetchProducts() async throws -> [PurchaseProduct] {
         do {
