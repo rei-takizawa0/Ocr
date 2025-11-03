@@ -211,32 +211,26 @@ final class VisionOCRService {
             }
         }
 
-        // 改行を復元
+        // 各テキスト要素を改行で区切って出力
         var resultLines: [String] = []
-        var currentLine: String = ""
         var previousY: CGFloat?
 
         for element in elements {
-            if let prevY = previousY {
-                // Y座標の差が大きければ改行
-                if abs(prevY - element.y) > 0.025 {
-                    if !currentLine.isEmpty {
-                        resultLines.append(currentLine.trimmingCharacters(in: .whitespaces))
-                    }
-                    currentLine = element.text
-                } else {
-                    // 同一行内
-                    currentLine += " " + element.text
-                }
-            } else {
-                currentLine = element.text
-            }
-            previousY = element.y
-        }
+            let trimmedText = element.text.trimmingCharacters(in: .whitespaces)
 
-        // 最終行を追加
-        if !currentLine.isEmpty {
-            resultLines.append(currentLine.trimmingCharacters(in: .whitespaces))
+            if let prevY = previousY {
+                // Y座標の差が大きければ空行を追加（段落の区切り）
+                if abs(prevY - element.y) > 0.05 {
+                    resultLines.append("") // 空行を追加
+                }
+            }
+
+            // テキストが空でない場合のみ追加
+            if !trimmedText.isEmpty {
+                resultLines.append(trimmedText)
+            }
+
+            previousY = element.y
         }
 
         return resultLines.joined(separator: "\n")
