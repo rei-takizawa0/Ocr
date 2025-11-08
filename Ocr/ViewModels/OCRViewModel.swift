@@ -77,7 +77,7 @@ final class OCRViewModel: ObservableObject {
 
             let recognized = try await ocrService.recognizeText(from: image)
             let repo = LyricsRepository()
-            _ = try? await repo.save(id: lyricIDRepository.fetchID().id, content: recognized.text)
+            _ = try? await repo.save(id: lyricIDRepository.getCurrentID(), content: recognized.text)
             recognizedText = recognized.text
 
         } catch {

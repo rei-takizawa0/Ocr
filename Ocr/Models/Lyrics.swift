@@ -14,7 +14,7 @@ struct Lyrics: Identifiable, Codable {
     let content: String
     let createdAt: Date
 
-    init(id: UUID = UUID(), content: String) {
+    init(id: UUID, content: String) {
         self.id = id
         self.content = content
         self.createdAt = Date()

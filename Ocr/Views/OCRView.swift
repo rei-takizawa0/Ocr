@@ -34,6 +34,7 @@ struct OCRView: View {
     @State private var isShowingCamera = false
     @State private var showingShareSheet = false
     @State private var showingSettings = false
+    @State private var showingURLManagement = false
 
     var body: some View {
         NavigationView {
@@ -75,6 +76,14 @@ struct OCRView: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        showingURLManagement = true
+                    }) {
+                        Image(systemName: "link.circle")
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         showingSettings = true
@@ -100,6 +109,9 @@ struct OCRView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView(viewModel: SettingsViewModel(purchaseService: purchaseService))
+            }
+            .sheet(isPresented: $showingURLManagement) {
+                LyricURLView(modelContext: modelContext)
             }
         }
     }

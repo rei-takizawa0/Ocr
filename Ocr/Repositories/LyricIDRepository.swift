@@ -15,7 +15,7 @@ final class LyricIDRepository {
     // MARK: - Public Methods
 
     /// UUID を取得または作成
-    func fetchID() throws -> LyricID {
+    private func fetchID() throws -> LyricID {
         let descriptor = FetchDescriptor<LyricID>()
         let results = try modelContext.fetch(descriptor)
 
