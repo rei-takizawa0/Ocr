@@ -73,8 +73,10 @@ final class OCRViewModel: ObservableObject {
                 try handleAdvertisementDisplay()
             }
 
-            let result = try await ocrService.recognizeText(from: image)
-            recognizedText = result.text
+            let recognized = try await ocrService.recognizeText(from: image)
+            let repo = LyricsRepository()
+            _ = try? repo.save(id: UUID().uuidString, content: recognized.text)
+            recognizedText = recognized.text
 
         } catch {
             errorMessage = handleError(error)
