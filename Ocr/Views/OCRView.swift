@@ -17,13 +17,15 @@ struct OCRView: View {
 
     init(purchaseService: StoreKitPurchaseService, modelContext: ModelContext) {
         let adRepository = AdCounterRepository(modelContext: modelContext)
+        let lyricIDRepository = LyricIDRepository(modelContext: modelContext)
         let advertisementService = AdvertisementService(purchaseService: purchaseService)
 
         _viewModel = StateObject(wrappedValue: OCRViewModel(
             ocrService: VisionOCRService(),
             advertisementService: advertisementService,
             sharingService: SharingService(),
-            adRepository: adRepository
+            adRepository: adRepository,
+            lyricIDRepository : lyricIDRepository
         ))
     }
 

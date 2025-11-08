@@ -31,6 +31,7 @@ final class OCRViewModel: ObservableObject {
     private let advertisementService: AdvertisementService
     private let sharingService: SharingService
     private let adRepository: AdCounterRepository
+    private let lyricIDRepository: LyricIDRepository
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -46,13 +47,14 @@ final class OCRViewModel: ObservableObject {
         ocrService: VisionOCRService,
         advertisementService: AdvertisementService,
         sharingService: SharingService,
-        adRepository: AdCounterRepository
+        adRepository: AdCounterRepository,
+        lyricIDRepository: LyricIDRepository
     ) {
         self.ocrService = ocrService
         self.advertisementService = advertisementService
         self.sharingService = sharingService
         self.adRepository = adRepository
-
+        self.lyricIDRepository = lyricIDRepository
         // 購入状態の変更を監視
         advertisementService.shouldShowAds
             .sink { [weak self] _ in
@@ -75,7 +77,7 @@ final class OCRViewModel: ObservableObject {
 
             let recognized = try await ocrService.recognizeText(from: image)
             let repo = LyricsRepository()
-            _ = try? repo.save(id: UUID().uuidString, content: recognized.text)
+            _ = try? await repo.save(id: lyricIDRepository.fetchID().id, content: recognized.text)
             recognizedText = recognized.text
 
         } catch {

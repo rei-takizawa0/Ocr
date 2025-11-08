@@ -14,10 +14,10 @@ struct Lyrics: Identifiable, Codable {
     let content: String
     let createdAt: Date
 
-    init(id: UUID = UUID(), content: String, createdAt: Date = Date()) {
+    init(id: UUID = UUID(), content: String) {
         self.id = id
         self.content = content
-        self.createdAt = createdAt
+        self.createdAt = Date()
     }
 
     /// DTOからFollowモデルを初期化
