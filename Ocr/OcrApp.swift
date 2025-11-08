@@ -19,7 +19,7 @@ struct OcrApp: App {
     init() {
         // SwiftDataコンテナを初期化
         do {
-            container = try ModelContainer(for: AdCounter.self)
+            container = try ModelContainer(for: AdCounter.self, LyricID.self)
         } catch {
             fatalError("Failed to initialize ModelContainer: \(error)")
         }
