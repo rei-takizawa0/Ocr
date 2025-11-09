@@ -34,7 +34,7 @@ struct LyricURLView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("歌詞URL管理")
+            .navigationTitle("URL管理")
             .background(ViewControllerResolver { self.viewController = $0 })
             .overlay(alignment: .top) {
                 if viewModel.showSuccessMessage {
@@ -60,10 +60,13 @@ struct LyricURLView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.blue)
 
-            Text("現在のIDに紐づく歌詞データを表示するURLです")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 2) {
+                Text("読み込んだテキストを一覧で表示するURLです。")
+                Text("URLをコピーしてPC等でアクセスしてください。")
+            }
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.center)
         }
         .padding(.top)
     }
@@ -113,7 +116,7 @@ struct LyricURLView: View {
                 Label("URLを共有", systemImage: "square.and.arrow.up")
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.green)
+                    .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(12)
             }
@@ -130,19 +133,19 @@ struct LyricURLView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
-                        Label("新しくIDを発番", systemImage: "arrow.clockwise")
+                        Label("ページを変更", systemImage: "arrow.clockwise")
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.orange)
+                .background(Color.blue)
                 .foregroundColor(.white)
                 .cornerRadius(12)
             }
             .disabled(viewModel.isLoading)
             .opacity(viewModel.isLoading ? 0.6 : 1.0)
 
-            Text("※ IDを再発番すると、以前のデータは削除されます")
+            Text("※ ページを変更すると、以前のデータは削除されます")
                 .font(.caption)
                 .foregroundColor(.red)
                 .multilineTextAlignment(.center)
@@ -180,14 +183,4 @@ private struct ViewControllerResolver: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
-
-// MARK: - Preview
-
-#Preview {
-    let container = try! ModelContainer(for: LyricID.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-
-    return NavigationView {
-        LyricURLView(modelContext: container.mainContext)
-    }
 }
