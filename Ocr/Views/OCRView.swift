@@ -36,6 +36,10 @@ struct OCRView: View {
     @State private var showingSettings = false
     @State private var showingURLManagement = false
 
+    // プレミアムOCR機能
+    @State private var isPremiumOCREnabled = false
+    @State private var premiumOCRRemainingCount = 10
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -48,12 +52,15 @@ struct OCRView: View {
 
                 ScrollView {
                     VStack(spacing: 20) {
+                        // プレミアムOCRトグル
+                        premiumOCRToggle
+
                         // 画像選択ボタン
                         imageSelectionButtons
 
                         // 選択された画像
                         if let image = selectedImage {
-                            imagePreview(image)
+                                imagePreview(image)
                         }
 
                         // 認識されたテキスト
@@ -118,28 +125,92 @@ struct OCRView: View {
 
     // MARK: - View Components
 
+    private var premiumOCRToggle: some View {
+        VStack(spacing: 12) {
+            Button(action: {
+                if premiumOCRRemainingCount > 0 {
+                    isPremiumOCREnabled.toggle()
+                }
+            }) {
+                HStack {
+                    Image(systemName: isPremiumOCREnabled ? "star.fill" : "star")
+                        .font(.title2)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isPremiumOCREnabled ? "高機能OCR有効" : "高機能OCR")
+                            .font(.headline)
+                        Text("残り\(premiumOCRRemainingCount)回")
+                            .font(.caption)
+                            .foregroundColor(isPremiumOCREnabled ? .white.opacity(0.9) : .primary.opacity(0.7))
+                    }
+
+                    Spacer()
+
+                    if isPremiumOCREnabled {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: isPremiumOCREnabled
+                            ? [Color.orange, Color.yellow]
+                            : [Color.gray.opacity(0.2), Color.gray.opacity(0.1)]
+                        ),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .foregroundColor(isPremiumOCREnabled ? .white : .primary)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isPremiumOCREnabled ? Color.orange : Color.clear, lineWidth: 2)
+                )
+            }
+            .disabled(premiumOCRRemainingCount == 0)
+            .opacity(premiumOCRRemainingCount == 0 ? 0.5 : 1.0)
+
+            if isPremiumOCREnabled {
+                HStack {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.orange)
+                    Text("次の撮影で高機能OCRが適用されます")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+
     private var imageSelectionButtons: some View {
         HStack(spacing: 20) {
             Button(action: {
                 isShowingCamera = true
             }) {
-                Label("カメラ", systemImage: "camera")
-                    .frame(maxWidth: .infinity)
-                    .padding()
+                    Label("カメラ", systemImage: "camera")
+                .frame(maxWidth: .infinity)
+                .padding()
                     .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+                .foregroundColor(.white)
+                .cornerRadius(10)
             }
 
             Button(action: {
                 isShowingImagePicker = true
             }) {
-                Label("ライブラリ", systemImage: "photo.on.rectangle")
-                    .frame(maxWidth: .infinity)
-                    .padding()
+                    Label("ライブラリ", systemImage: "photo.on.rectangle")
+                .frame(maxWidth: .infinity)
+                .padding()
                     .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+                .foregroundColor(.white)
+                .cornerRadius(10)
             }
         }
     }
@@ -207,6 +278,14 @@ struct OCRView: View {
 
     private func processImage(_ image: UIImage) {
         Task {
+            // 高機能OCRが有効な場合、回数を減らしてOFFにする
+            if isPremiumOCREnabled {
+                if premiumOCRRemainingCount > 0 {
+                    premiumOCRRemainingCount -= 1
+                }
+                isPremiumOCREnabled = false
+            }
+
             await viewModel.recognizeText(from: image)
         }
     }
