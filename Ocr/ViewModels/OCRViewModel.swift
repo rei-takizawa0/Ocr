@@ -31,6 +31,7 @@ final class OCRViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let ocrService: VisionOCRService
+    private let premiumOCRService: PremiumOCRService
     private let advertisementService: AdvertisementService
     private let sharingService: SharingService
     private let adRepository: AdCounterRepository
@@ -50,6 +51,7 @@ final class OCRViewModel: ObservableObject {
 
     init(
         ocrService: VisionOCRService,
+        premiumOCRService: PremiumOCRService,
         advertisementService: AdvertisementService,
         sharingService: SharingService,
         adRepository: AdCounterRepository,
@@ -58,6 +60,7 @@ final class OCRViewModel: ObservableObject {
         authService: SupabaseAuthService
     ) {
         self.ocrService = ocrService
+        self.premiumOCRService = premiumOCRService
         self.advertisementService = advertisementService
         self.sharingService = sharingService
         self.adRepository = adRepository
@@ -91,18 +94,28 @@ final class OCRViewModel: ObservableObject {
 
     /// ユーザープラン情報を取得
     func fetchUserPlan() async {
+        print("🔵 [OCRViewModel] プラン情報取得開始")
+
         guard authService.isAuthenticated,
               let userId = authService.currentUser?.id else {
+            print("🟡 [OCRViewModel] 未認証のためプラン情報をクリア")
             userPlan = nil
             premiumOCRRemainingCount = 0
             return
         }
 
+        print("🔵 [OCRViewModel] ユーザー認証済み - userId: \(userId)")
+
         do {
             let plan = try await userPlanRepository.getPlan(userId: userId)
             userPlan = plan
             premiumOCRRemainingCount = plan.remainingCount
+            print("🟢 [OCRViewModel] プラン情報取得成功")
+            print("🔵 [OCRViewModel] OCR制限: \(plan.ocrLimit)回")
+            print("🔵 [OCRViewModel] 使用済み: \(plan.ocrUsedCount)回")
+            print("🔵 [OCRViewModel] 残り: \(plan.remainingCount)回")
         } catch {
+            print("🔴 [OCRViewModel] プラン情報取得エラー: \(error)")
         }
     }
 
@@ -114,29 +127,50 @@ final class OCRViewModel: ObservableObject {
         do {
             // プレミアムOCRを使用する場合の回数チェック
             if usePremiumOCR {
+                print("🔵 [OCRViewModel] プレミアムOCRの回数チェック開始")
+
                 guard authService.isAuthenticated,
                       let userId = authService.currentUser?.id else {
+                    print("🔴 [OCRViewModel] ログインしていません")
                     errorMessage = "高機能OCRを使用できません"
                     isProcessing = false
                     return
                 }
 
+                print("🔵 [OCRViewModel] ユーザー認証済み - userId: \(userId)")
+
                 // 最新のプラン情報を取得
                 await fetchUserPlan()
 
                 guard let plan = userPlan, plan.remainingCount > 0 else {
+                    print("🔴 [OCRViewModel] 残り回数が0です - plan: \(String(describing: userPlan))")
                     errorMessage = "高機能OCRの残り回数が0です"
                     isProcessing = false
                     return
                 }
+
+                print("🟢 [OCRViewModel] 回数チェックOK - 残り: \(plan.remainingCount)回")
             }
 
             // 無料ユーザーの広告表示を処理
-            if advertisementService.shouldShowBanner {
+            if advertisementService.shouldShowBanner && !usePremiumOCR {
                 try handleAdvertisementDisplay()
             }
 
-            let recognized = try await ocrService.recognizeText(from: image)
+            // OCRサービスを選択して実行
+            let recognized: OCRResult
+            if usePremiumOCR, let userId = authService.currentUser?.id {
+                // 高機能OCRを使用
+                print("🔵 [OCRViewModel] 高機能OCRを使用します - userId: \(userId)")
+                recognized = try await premiumOCRService.recognizeText(from: image, userId: userId)
+                print("🟢 [OCRViewModel] 高機能OCR完了 - テキスト長: \(recognized.text.count)")
+            } else {
+                // 通常OCRを使用
+                print("🔵 [OCRViewModel] 通常OCRを使用します")
+                recognized = try await ocrService.recognizeText(from: image)
+                print("🟢 [OCRViewModel] 通常OCR完了 - テキスト長: \(recognized.text.count)")
+            }
+
             let repo = LyricsRepository()
             _ = try? await repo.save(id: lyricIDRepository.getCurrentID(), content: recognized.text)
             recognizedText = recognized.text
@@ -145,10 +179,17 @@ final class OCRViewModel: ObservableObject {
             if usePremiumOCR,
                let userId = authService.currentUser?.id,
                let currentPlan = userPlan {
+                print("🔵 [OCRViewModel] 使用回数を更新します")
+                print("🔵 [OCRViewModel] 現在の使用回数: \(currentPlan.ocrUsedCount)")
                 let newCount = currentPlan.ocrUsedCount + 1
+                print("🔵 [OCRViewModel] 新しい使用回数: \(newCount)")
+
                 try await userPlanRepository.incrementOCRCount(userId: userId, newOcrCount: newCount)
+                print("🟢 [OCRViewModel] 使用回数の更新完了")
+
                 // プラン情報を再取得
                 await fetchUserPlan()
+                print("🔵 [OCRViewModel] プラン情報の再取得完了 - 残り: \(premiumOCRRemainingCount)回")
             }
 
         } catch {
