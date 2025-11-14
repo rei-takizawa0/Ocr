@@ -12,20 +12,24 @@ import SwiftData
 struct OCRView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var purchaseService: StoreKitPurchaseService
+    @EnvironmentObject private var authService: SupabaseAuthService
 
     @StateObject private var viewModel: OCRViewModel
 
-    init(purchaseService: StoreKitPurchaseService, modelContext: ModelContext) {
+    init(purchaseService: StoreKitPurchaseService, modelContext: ModelContext, authService: SupabaseAuthService) {
         let adRepository = AdCounterRepository(modelContext: modelContext)
         let lyricIDRepository = LyricIDRepository(modelContext: modelContext)
         let advertisementService = AdvertisementService(purchaseService: purchaseService)
+        let userPlanRepository = UserPlanRepository()
 
         _viewModel = StateObject(wrappedValue: OCRViewModel(
             ocrService: VisionOCRService(),
             advertisementService: advertisementService,
             sharingService: SharingService(),
             adRepository: adRepository,
-            lyricIDRepository : lyricIDRepository
+            lyricIDRepository: lyricIDRepository,
+            userPlanRepository: userPlanRepository,
+            authService: authService
         ))
     }
 
@@ -38,7 +42,6 @@ struct OCRView: View {
 
     // プレミアムOCR機能
     @State private var isPremiumOCREnabled = false
-    @State private var premiumOCRRemainingCount = 10
 
     var body: some View {
         NavigationView {
@@ -128,7 +131,13 @@ struct OCRView: View {
     private var premiumOCRToggle: some View {
         VStack(spacing: 12) {
             Button(action: {
-                if premiumOCRRemainingCount > 0 {
+                if !authService.isAuthenticated {
+                    // ログインが必要な場合
+                    viewModel.errorMessage = "高機能OCRを使用するにはログインが必要です"
+                    return
+                }
+
+                if viewModel.premiumOCRRemainingCount > 0 {
                     isPremiumOCREnabled.toggle()
                 }
             }) {
@@ -139,9 +148,16 @@ struct OCRView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(isPremiumOCREnabled ? "高機能OCR有効" : "高機能OCR")
                             .font(.headline)
-                        Text("残り\(premiumOCRRemainingCount)回")
-                            .font(.caption)
-                            .foregroundColor(isPremiumOCREnabled ? .white.opacity(0.9) : .primary.opacity(0.7))
+
+                        if authService.isAuthenticated {
+                            Text("残り\(viewModel.premiumOCRRemainingCount)回")
+                                .font(.caption)
+                                .foregroundColor(isPremiumOCREnabled ? .white.opacity(0.9) : .primary.opacity(0.7))
+                        } else {
+                            Text("ログインが必要です")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
 
                     Spacer()
@@ -170,8 +186,8 @@ struct OCRView: View {
                         .stroke(isPremiumOCREnabled ? Color.orange : Color.clear, lineWidth: 2)
                 )
             }
-            .disabled(premiumOCRRemainingCount == 0)
-            .opacity(premiumOCRRemainingCount == 0 ? 0.5 : 1.0)
+            .disabled(!authService.isAuthenticated || viewModel.premiumOCRRemainingCount == 0)
+            .opacity(!authService.isAuthenticated || viewModel.premiumOCRRemainingCount == 0 ? 0.5 : 1.0)
 
             if isPremiumOCREnabled {
                 HStack {
@@ -185,6 +201,12 @@ struct OCRView: View {
                 .padding(.vertical, 8)
                 .background(Color.orange.opacity(0.1))
                 .cornerRadius(8)
+            }
+        }
+        .task {
+            // ビュー表示時にプラン情報を取得
+            if authService.isAuthenticated {
+                await viewModel.fetchUserPlan()
             }
         }
     }
@@ -278,15 +300,14 @@ struct OCRView: View {
 
     private func processImage(_ image: UIImage) {
         Task {
-            // 高機能OCRが有効な場合、回数を減らしてOFFにする
+            let usePremiumOCR = isPremiumOCREnabled
+
+            // プレミアムOCRを実行後はフラグをオフにする
             if isPremiumOCREnabled {
-                if premiumOCRRemainingCount > 0 {
-                    premiumOCRRemainingCount -= 1
-                }
                 isPremiumOCREnabled = false
             }
 
-            await viewModel.recognizeText(from: image)
+            await viewModel.recognizeText(from: image, usePremiumOCR: usePremiumOCR)
         }
     }
 }

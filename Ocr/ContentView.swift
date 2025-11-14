@@ -11,9 +11,10 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var purchaseService: StoreKitPurchaseService
+    @EnvironmentObject private var authService: SupabaseAuthService
 
     var body: some View {
-        OCRView(purchaseService: purchaseService, modelContext: modelContext)
+        OCRView(purchaseService: purchaseService, modelContext: modelContext, authService: authService)
     }
 }
 

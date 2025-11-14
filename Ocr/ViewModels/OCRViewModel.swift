@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 import Combine
 import SwiftData
+internal import Auth
 
 /// OCR画面のViewModel（SRP: プレゼンテーションロジックのみの責任）
 @MainActor
@@ -24,6 +25,8 @@ final class OCRViewModel: ObservableObject {
     @Published var isProcessing: Bool = false
     @Published var errorMessage: String?
     @Published var shouldShowInterstitialAd: Bool = false
+    @Published var userPlan: UserPlan?
+    @Published var premiumOCRRemainingCount: Int = 0
 
     // MARK: - Dependencies
 
@@ -32,6 +35,8 @@ final class OCRViewModel: ObservableObject {
     private let sharingService: SharingService
     private let adRepository: AdCounterRepository
     private let lyricIDRepository: LyricIDRepository
+    private let userPlanRepository: UserPlanRepository
+    private let authService: SupabaseAuthService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -48,28 +53,84 @@ final class OCRViewModel: ObservableObject {
         advertisementService: AdvertisementService,
         sharingService: SharingService,
         adRepository: AdCounterRepository,
-        lyricIDRepository: LyricIDRepository
+        lyricIDRepository: LyricIDRepository,
+        userPlanRepository: UserPlanRepository,
+        authService: SupabaseAuthService
     ) {
         self.ocrService = ocrService
         self.advertisementService = advertisementService
         self.sharingService = sharingService
         self.adRepository = adRepository
         self.lyricIDRepository = lyricIDRepository
+        self.userPlanRepository = userPlanRepository
+        self.authService = authService
+
         // 購入状態の変更を監視
         advertisementService.shouldShowAds
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+
+        // 認証状態の変更を監視してプラン情報を更新
+        authService.$isAuthenticated
+            .sink { [weak self] isAuthenticated in
+                if isAuthenticated {
+                    Task { @MainActor in
+                        await self?.fetchUserPlan()
+                    }
+                } else {
+                    self?.userPlan = nil
+                    self?.premiumOCRRemainingCount = 0
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Public Methods
 
-    func recognizeText(from image: UIImage) async {
+    /// ユーザープラン情報を取得
+    func fetchUserPlan() async {
+        guard authService.isAuthenticated,
+              let userId = authService.currentUser?.id else {
+            userPlan = nil
+            premiumOCRRemainingCount = 0
+            return
+        }
+
+        do {
+            let plan = try await userPlanRepository.getPlan(userId: userId)
+            userPlan = plan
+            premiumOCRRemainingCount = plan.remainingCount
+        } catch {
+        }
+    }
+
+    /// 高機能OCRを使用してテキストを認識
+    func recognizeText(from image: UIImage, usePremiumOCR: Bool = false) async {
         isProcessing = true
         errorMessage = nil
 
         do {
+            // プレミアムOCRを使用する場合の回数チェック
+            if usePremiumOCR {
+                guard authService.isAuthenticated,
+                      let userId = authService.currentUser?.id else {
+                    errorMessage = "高機能OCRを使用できません"
+                    isProcessing = false
+                    return
+                }
+
+                // 最新のプラン情報を取得
+                await fetchUserPlan()
+
+                guard let plan = userPlan, plan.remainingCount > 0 else {
+                    errorMessage = "高機能OCRの残り回数が0です"
+                    isProcessing = false
+                    return
+                }
+            }
+
             // 無料ユーザーの広告表示を処理
             if advertisementService.shouldShowBanner {
                 try handleAdvertisementDisplay()
@@ -79,6 +140,16 @@ final class OCRViewModel: ObservableObject {
             let repo = LyricsRepository()
             _ = try? await repo.save(id: lyricIDRepository.getCurrentID(), content: recognized.text)
             recognizedText = recognized.text
+
+            // プレミアムOCRを使用した場合、使用回数を更新
+            if usePremiumOCR,
+               let userId = authService.currentUser?.id,
+               let currentPlan = userPlan {
+                let newCount = currentPlan.ocrUsedCount + 1
+                try await userPlanRepository.incrementOCRCount(userId: userId, newOcrCount: newCount)
+                // プラン情報を再取得
+                await fetchUserPlan()
+            }
 
         } catch {
             errorMessage = handleError(error)
@@ -134,6 +205,6 @@ final class OCRViewModel: ObservableObject {
                 return "テキストが見つかりませんでした。別の画像を選択してください。"
             }
         }
-        return "エラーが発生しました: \(error.localizedDescription)"
+        return "エラーが発生しました"
     }
 }

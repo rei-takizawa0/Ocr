@@ -50,7 +50,7 @@ final class SupabaseAuthService: ObservableObject {
             currentUser = session.user
             isAuthenticated = true
         } catch {
-            errorMessage = "ログインに失敗しました: \(error.localizedDescription)"
+            errorMessage = "ログインに失敗しました"
             isAuthenticated = false
         }
     }
@@ -65,7 +65,7 @@ final class SupabaseAuthService: ObservableObject {
             currentUser = nil
             isAuthenticated = false
         } catch {
-            errorMessage = "ログアウトに失敗しました: \(error.localizedDescription)"
+            errorMessage = "ログアウトに失敗しました"
         }
     }
 
@@ -77,7 +77,7 @@ final class SupabaseAuthService: ObservableObject {
         do {
             try await client.auth.resetPasswordForEmail(email)
         } catch {
-            errorMessage = "パスワードリセットに失敗しました: \(error.localizedDescription)"
+            errorMessage = "パスワードリセットに失敗しました"
         }
     }
 }

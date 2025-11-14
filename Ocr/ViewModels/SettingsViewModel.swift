@@ -113,7 +113,7 @@ final class SettingsViewModel: ObservableObject {
                 return "復元に失敗しました。"
             }
         }
-        return "エラーが発生しました: \(error.localizedDescription)"
+        return "エラーが発生しました"
     }
 
     private func handlePurchaseError(_ error: Error) -> String {
