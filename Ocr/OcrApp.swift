@@ -12,7 +12,6 @@ import os.log
 @main
 struct OcrApp: App {
     let container: ModelContainer
-    @StateObject private var purchaseService = StoreKitPurchaseService()
     @StateObject private var authService = SupabaseAuthService()
 
     private static let logger = Logger(subsystem: "com.ocr.app", category: "App")
@@ -30,17 +29,7 @@ struct OcrApp: App {
         WindowGroup {
             ContentView()
                 .modelContainer(container)
-                .environmentObject(purchaseService)
                 .environmentObject(authService)
-                .task {
-                    // 購入履歴をバックグラウンドで復元
-                    do {
-                        try await purchaseService.load()
-                        Self.logger.info("Purchase history restored successfully")
-                    } catch {
-                        Self.logger.error("Failed to restore purchases: \(error.localizedDescription)")
-                    }
-                }
         }
     }
 }

@@ -11,15 +11,14 @@ import SwiftData
 
 struct OCRView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var purchaseService: StoreKitPurchaseService
     @EnvironmentObject private var authService: SupabaseAuthService
 
     @StateObject private var viewModel: OCRViewModel
 
-    init(purchaseService: StoreKitPurchaseService, modelContext: ModelContext, authService: SupabaseAuthService) {
+    init( modelContext: ModelContext, authService: SupabaseAuthService) {
         let adRepository = AdCounterRepository(modelContext: modelContext)
         let lyricIDRepository = LyricIDRepository(modelContext: modelContext)
-        let advertisementService = AdvertisementService(purchaseService: purchaseService)
+        let advertisementService = AdvertisementService()
         let userPlanRepository = UserPlanRepository()
 
         _viewModel = StateObject(wrappedValue: OCRViewModel(
@@ -119,7 +118,7 @@ struct OCRView: View {
                 }
             }
             .sheet(isPresented: $showingSettings) {
-                SettingsView(viewModel: SettingsViewModel(purchaseService: purchaseService))
+                SettingsView(viewModel: SettingsViewModel())
             }
             .sheet(isPresented: $showingURLManagement) {
                 LyricURLView(modelContext: modelContext)

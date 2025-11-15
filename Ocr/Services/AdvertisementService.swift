@@ -26,7 +26,6 @@ final class AdvertisementService {
 
     // MARK: - Properties
 
-    private let purchaseService: StoreKitPurchaseService
     private var cancellables = Set<AnyCancellable>()
 
     private let shouldShowAdsSubject = CurrentValueSubject<Bool, Never>(true)
@@ -38,14 +37,7 @@ final class AdvertisementService {
     }
 
     var shouldShowBanner: Bool {
-        return !purchaseService.isPremium
-    }
-
-    // MARK: - Initialization
-
-    init(purchaseService: StoreKitPurchaseService) {
-        self.purchaseService = purchaseService
-        observePurchaseStatus()
+        return true
     }
 
     // MARK: - Public Methods
@@ -61,19 +53,10 @@ final class AdvertisementService {
     func loadInterstitialAd() async throws {
         // TODO: AdMob SDKとの統合
         // 実際の実装ではAdMobを使用してインタースティシャル広告をロード
-        guard !purchaseService.isPremium else {
+        guard shouldShowBanner else {
             throw AdvertisementServiceError.adNotLoaded
         }
     }
 
     // MARK: - Private Methods
-
-    private func observePurchaseStatus() {
-        purchaseService.isPremiumPublisher
-            .map { !$0 } // プレミアム購入済みの場合は広告を表示しない
-            .sink { [weak self] shouldShow in
-                self?.shouldShowAdsSubject.send(shouldShow)
-            }
-            .store(in: &cancellables)
-    }
 }
