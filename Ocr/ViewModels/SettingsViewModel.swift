@@ -13,15 +13,8 @@ import Combine
 final class SettingsViewModel: ObservableObject {
 
     // MARK: - Published Properties
-
-    @Published var isPremium: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    @Published var showRestoreSuccess: Bool = false
-
-    // MARK: - Dependencies
-
-    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - URLs
 
