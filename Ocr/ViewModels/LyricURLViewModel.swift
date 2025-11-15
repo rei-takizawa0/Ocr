@@ -27,7 +27,7 @@ final class LyricURLViewModel: ObservableObject {
 
     private let modelContext: ModelContext
     private let sharingService: SharingService
-    private let baseURL: String = "https://your-domain.com"
+    private let baseURL: String = "https://poee.jp"
 
     // MARK: - Initialization
 

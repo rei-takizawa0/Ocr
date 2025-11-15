@@ -24,6 +24,7 @@ struct OCRView: View {
 
         _viewModel = StateObject(wrappedValue: OCRViewModel(
             ocrService: VisionOCRService(),
+            premiumOCRService: PremiumOCRService(),
             advertisementService: advertisementService,
             sharingService: SharingService(),
             adRepository: adRepository,

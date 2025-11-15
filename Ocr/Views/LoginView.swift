@@ -17,7 +17,7 @@ struct LoginView: View {
     @State private var showingPasswordReset = false
 
     // 新規登録用のWebサイトURL（実際のURLに変更してください）
-    private let signUpURL = URL(string: "https://your-website.com/signup")!
+    private let signUpURL = URL(string: "https://poee.jp/signup")!
 
     var body: some View {
         NavigationView {

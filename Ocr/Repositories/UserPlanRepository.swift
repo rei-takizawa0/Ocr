@@ -14,7 +14,7 @@ final class UserPlanRepository {
     func getPlan(userId:UUID) async throws -> UserPlan {
         let plan:UserPlanDTO = try await client
             .from("user_plans")
-            .select("id, is_show_ad, ocr_limit, ocr_used_count")
+            .select("id, user_id, is_show_ad, ocr_limit, ocr_used_count")
             .eq("user_id", value: userId)
             .single()
             .execute()

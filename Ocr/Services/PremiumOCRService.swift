@@ -11,7 +11,7 @@ import UIKit
 /// プレミアムOCRサービス
 final class PremiumOCRService {
 
-    private let apiURL = URL(string: "https://ocr-backend.rei971222.workers.dev")!
+    private let apiURL = URL(string: "https://ocr-backend.rei971222.workers.dev/api/ocr")!
 
     // デバッグ用：モックモードを有効化（サーバー実装完了後はfalseに）
     private let useMockResponse = false
@@ -22,7 +22,7 @@ final class PremiumOCRService {
     func recognizeText(from image: UIImage, userId: UUID) async throws -> OCRResult {
         print("🔵 [PremiumOCR] 開始 - userId: \(userId.uuidString)")
 
-        // モックモード（デバッグ用）
+               // モックモード（デバッグ用）
         if useMockResponse {
             print("🟡 [PremiumOCR] モックモード: テストデータを返します")
             try await Task.sleep(nanoseconds: 1_000_000_000) // 1秒待機
@@ -32,7 +32,7 @@ final class PremiumOCRService {
                 processedImage: image
             )
         }
-
+        
         // 画像をBase64エンコード
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
             print("🔴 [PremiumOCR] エラー: 画像のエンコードに失敗")
