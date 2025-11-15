@@ -11,7 +11,7 @@ enum OCRServiceError: Error, Equatable {
 }
 
 /// Vision frameworkを使用した高精度OCRサービス
-final class VisionOCRService {
+final class OCRService {
 
     // MARK: - Constants
 

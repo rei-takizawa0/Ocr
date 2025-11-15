@@ -30,7 +30,7 @@ final class OCRViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let ocrService: VisionOCRService
+    private let ocrService: OCRService
     private let premiumOCRService: PremiumOCRService
     private let advertisementService: AdvertisementService
     private let sharingService: SharingService
@@ -50,7 +50,7 @@ final class OCRViewModel: ObservableObject {
     // MARK: - Initialization
 
     init(
-        ocrService: VisionOCRService,
+        ocrService: OCRService,
         premiumOCRService: PremiumOCRService,
         advertisementService: AdvertisementService,
         sharingService: SharingService,
